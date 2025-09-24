@@ -16,6 +16,12 @@ diagrams-docker:
 		-format plantuml \
 		-output /usr/local/structurizr/$(DIAGRAMS_DIR)
 
+diagrams-docker-from-json:
+	$(STRUCTURIZR_DOCKER) export \
+		-workspace /usr/local/structurizr/$(DSL_DIR)/workspace.json \
+		-format plantuml \
+		-output /usr/local/structurizr/$(DIAGRAMS_DIR)
+
 # Конвертация .puml → PNG
 png:
 	$(PLANTUML_DOCKER) -tpng $(DIAGRAMS_DIR)/*.puml
