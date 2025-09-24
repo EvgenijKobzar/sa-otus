@@ -88,3 +88,22 @@ IT команда
 - Характеристика: безопасность и интеграция с платёжными системами.
 - Критический сценарий 4: Рост пользователей с 10 тыс. до 1 млн
 - Характеристика: масштабируемость и гибкость архитектуры (кластеризация, облачные ресурсы).
+
+### ADR
+- Для просмотра списка требуется выполнить требования ADR - 
+[0002-use-adr-toolsadr.md](architecture/decisions/0002-use-adr-toolsadr.md)
+- После выполенния команды:
+  ```bash
+  adr generate toc
+  ```
+  получаем список 
+```text
+* [1. Record architecture decisions](0001-record-architecture-decisions.md)
+* [3. Использование adr-tools для ведения журнала решений](0002-use-adr-toolsadr.md)
+* [2. Выбор Structurizr DSL для описания архитектуры](0003-use-stcructurizr-dsl.md)
+* [4. Использование Structurizr CLI для генерации диаграмм из DSL](0004-use-structurizr-cli.md)
+* [5. Выбор браузерного веб-приложения как основного интерфейса](0005-browser-web-application-as-the-main-interface.md)
+* [6. Облачное хранение документов и версионирование](0006-cloud-document-storage-and-versioning.md)
+* [7. Интеграция с внешним платёжным шлюзом](0007-integration-with-an-external-payment-gateway.md)
+
+```
