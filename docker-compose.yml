@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  structurizr-cli:
+    image: structurizr/cli:latest
+    container_name: structurizr-cli
+    working_dir: /workspace
+    volumes:
+      - ./docs/architecture/dsl:/workspace
+    entrypoint: [ "sh", "-c", "\
+        apt-get update && apt-get install -y inotify-tools && \
+        mkdir -p /workspace/output && \
+        while true; do \
+          inotifywait -e modify,create,delete /workspace/*.dsl && \
+          /usr/local/structurizr-cli/structurizr.sh export -w /workspace/workspace.dsl -o /workspace/diagrams --format plantuml; \
+        done" ]
+  structurizr-lite:
+    image: structurizr/lite:latest
+    container_name: structurizr-lite
+    ports:
+      - "8080:8080"  # веб-интерфейс будет доступен по http://localhost:8080
+    volumes:
+      - ./docs/architecture/dsl:/usr/local/structurizr
+    environment:
+      - STRUCTURIZR_LITE_STORAGE=/workspace
