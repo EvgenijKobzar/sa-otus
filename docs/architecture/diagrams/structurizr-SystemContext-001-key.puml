@@ -17,11 +17,11 @@ skinparam rectangle<<_transparent>> {
 }
 
 skinparam person<<1>> {
-  BackgroundColor #f4b400
-  FontColor #000000
-  BorderColor #aa7d00
+  BackgroundColor #08427b
+  FontColor #ffffff
+  BorderColor #052e56
 }
-person "==Person, Initiator" <<1>>
+person "==Person" <<1>>
 
 skinparam rectangle<<2>> {
   BackgroundColor #1168bd
@@ -39,16 +39,8 @@ skinparam rectangle<<3>> {
 }
 rectangle "==Software System, External" <<3>>
 
-skinparam rectangle<<4>> {
-  BackgroundColor #f4b400
-  FontColor #000000
-  BorderColor #aa7d00
-  roundCorner 20
-}
-rectangle "==Software System, Initiator" <<4>>
-
-rectangle "." <<_transparent>> as 5
-5 .[#707070,thickness=2].> 5 : "<color:#707070>Relationship"
+rectangle "." <<_transparent>> as 4
+4 .[#707070,thickness=2].> 4 : "<color:#707070>Relationship"
 
 
 @enduml
