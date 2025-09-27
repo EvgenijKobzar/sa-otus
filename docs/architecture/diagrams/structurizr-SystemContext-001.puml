@@ -1,0 +1,138 @@
+@startuml
+set separator none
+title Контекст системы — Print & Docs Platform (C1)
+
+top to bottom direction
+
+skinparam {
+  arrowFontSize 10
+  defaultTextAlignment center
+  wrapWidth 200
+  maxMessageSize 100
+}
+
+hide stereotype
+
+skinparam rectangle<<PrintDocsPlatform>> {
+  BackgroundColor #1168bd
+  FontColor #ffffff
+  BorderColor #0b4884
+  roundCorner 20
+  shadowing false
+}
+skinparam rectangle<<Веббраузер>> {
+  BackgroundColor #c0c0c0
+  FontColor #000000
+  BorderColor #868686
+  roundCorner 20
+  shadowing false
+}
+skinparam person<<Клиент>> {
+  BackgroundColor #08427b
+  FontColor #ffffff
+  BorderColor #052e56
+  shadowing false
+}
+skinparam rectangle<<Локальнаясистемапечативмагазинах>> {
+  BackgroundColor #1168bd
+  FontColor #ffffff
+  BorderColor #0b4884
+  roundCorner 20
+  shadowing false
+}
+skinparam person<<Менеджментсети>> {
+  BackgroundColor #08427b
+  FontColor #ffffff
+  BorderColor #052e56
+  shadowing false
+}
+skinparam rectangle<<Облачноехранилище>> {
+  BackgroundColor #c0c0c0
+  FontColor #000000
+  BorderColor #868686
+  roundCorner 20
+  shadowing false
+}
+skinparam rectangle<<Платёжныйшлюз>> {
+  BackgroundColor #c0c0c0
+  FontColor #000000
+  BorderColor #868686
+  roundCorner 20
+  shadowing false
+}
+skinparam rectangle<<Сервисаутентификации>> {
+  BackgroundColor #c0c0c0
+  FontColor #000000
+  BorderColor #868686
+  roundCorner 20
+  shadowing false
+}
+skinparam rectangle<<Сервисуведомлений>> {
+  BackgroundColor #1168bd
+  FontColor #ffffff
+  BorderColor #0b4884
+  roundCorner 20
+  shadowing false
+}
+skinparam person<<Сотрудникмагазина>> {
+  BackgroundColor #08427b
+  FontColor #ffffff
+  BorderColor #052e56
+  shadowing false
+}
+skinparam rectangle<<Сторонняясистемаопераций>> {
+  BackgroundColor #c0c0c0
+  FontColor #000000
+  BorderColor #868686
+  roundCorner 20
+  shadowing false
+}
+
+rectangle "Доверенная зона" <<group1>> as group1 {
+  skinparam RectangleBorderColor<<group1>> #cccccc
+  skinparam RectangleFontColor<<group1>> #cccccc
+  skinparam RectangleBorderStyle<<group1>> dashed
+
+  rectangle "==Print & Docs Platform\n<size:10>[Software System]</size>\n\nОнлайн-платформа «всё-в-одном» для создания, редактирования, хранения, версионирования и заказа печати документов." <<PrintDocsPlatform>> as PrintDocsPlatform
+  rectangle "==Локальная система печати (в магазинах)\n<size:10>[Software System]</size>\n\nСистема POS/принтеров в филиалах, принимающая задания на печать. Ответственность: локальная буферизация/доставка задания на устройство, обработка драйвера." <<Локальнаясистемапечативмагазинах>> as Локальнаясистемапечативмагазинах
+  rectangle "==Сервис уведомлений\n<size:10>[Software System]</size>\n\nEmail / SMS / Push-провайдер для уведомлений о статусе заказов." <<Сервисуведомлений>> as Сервисуведомлений
+}
+
+rectangle "Не доверенная зона" <<group2>> as group2 {
+  skinparam RectangleBorderColor<<group2>> #cccccc
+  skinparam RectangleFontColor<<group2>> #cccccc
+  skinparam RectangleBorderStyle<<group2>> dashed
+
+  rectangle "==Платёжный шлюз\n<size:10>[Software System]</size>\n\nСторонний провайдер онлайн-платежей (карты, кошельки, подписки)." <<Платёжныйшлюз>> as Платёжныйшлюз
+  rectangle "==Веб-браузер\n<size:10>[Software System]</size>\n\nКлиентский интерфейс (браузерное приложение)." <<Веббраузер>> as Веббраузер
+}
+
+rectangle "Частично доверенная зона" <<group3>> as group3 {
+  skinparam RectangleBorderColor<<group3>> #cccccc
+  skinparam RectangleFontColor<<group3>> #cccccc
+  skinparam RectangleBorderStyle<<group3>> dashed
+
+  rectangle "==Сервис аутентификации\n<size:10>[Software System]</size>\n\nOAuth / SSO провайдер (опционально)." <<Сервисаутентификации>> as Сервисаутентификации
+  rectangle "==Сторонняя система операций\n<size:10>[Software System]</size>\n\nИсторическая система обработки операций, с которой ещё продолжается интеграция / миграция. Ответственность: бизнес-валидация, создание метаданных. Контракт интеграции: REST API (OpenAPI) — POST /api/print-jobs, GET /api/print-jobs/{id}; аутентификация: OAuth 2.0." <<Сторонняясистемаопераций>> as Сторонняясистемаопераций
+  rectangle "==Облачное хранилище\n<size:10>[Software System]</size>\n\nХранилище для документов, версий и резервных копий (S3-совместимое)." <<Облачноехранилище>> as Облачноехранилище
+}
+
+person "==Клиент\n<size:10>[Person]</size>\n\nПользователь, создающий/редактирующий документы и заказывающий печать через веб-интерфейс." <<Клиент>> as Клиент
+person "==Сотрудник магазина\n<size:10>[Person]</size>\n\nОбрабатывает локальные заказы печати и взаимодействует с POS/принт-системой." <<Сотрудникмагазина>> as Сотрудникмагазина
+person "==Менеджмент сети\n<size:10>[Person]</size>\n\nОтслеживает бизнес-метрики, управляет тарифами и политиками." <<Менеджментсети>> as Менеджментсети
+
+Клиент .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Использует для создания, редактирования, хранения и заказа печати\n<color:#707070><size:8>[HTTPS / REST / WebSockets (SPA)]</size>"
+Сотрудникмагазина .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Просматривает и обрабатывает входящие заказы печати\n<color:#707070><size:8>[HTTPS / REST / POS API]</size>"
+Менеджментсети .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Просматривает отчёты, управляет тарифами и шаблонами\n<color:#707070><size:8>[HTTPS / REST]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Веббраузер : "<color:#707070>Отдаёт UI / редактор\n<color:#707070><size:8>[HTML, JS]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Платёжныйшлюз : "<color:#707070>Инициирует платежи, проверяет статус транзакций\n<color:#707070><size:8>[REST/HTTPS, JSON]</size>"
+Платёжныйшлюз .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Отправляет уведомления о статусе транзакций\n<color:#707070><size:8>[REST/HTTPS, Webhook]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Сторонняясистемаопераций : "<color:#707070>Синхронизирует операции / отправляет задания (временно)\n<color:#707070><size:8>[REST / JSON, очередь сообщений (RabbitMQ/Kafka)]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Локальнаясистемапечативмагазинах : "<color:#707070>Отправляет задания на печать, планирование и статусы готовности\n<color:#707070><size:8>[REST / MQ / SFTP]</size>"
+Локальнаясистемапечативмагазинах .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Возвращает статусы печати\n<color:#707070><size:8>[REST / MQ]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Облачноехранилище : "<color:#707070>Сохраняет документы, версии и бэкапы\n<color:#707070><size:8>[S3 API / HTTPS]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Сервисуведомлений : "<color:#707070>Отправляет уведомления о статусе заказа/готовности\n<color:#707070><size:8>[HTTP API / SMTP / SMS API / Push API]</size>"
+Сервисуведомлений .[#707070,thickness=2].> Клиент : "<color:#707070>Доставляет уведомления (SMS, email, push)\n<color:#707070><size:8>[SMTP, SMS, Push]</size>"
+PrintDocsPlatform .[#707070,thickness=2].> Сервисаутентификации : "<color:#707070>Аутентификация пользователей / управление правами\n<color:#707070><size:8>[OAuth2 / OpenID Connect / HTTPS]</size>"
+Сервисаутентификации .[#707070,thickness=2].> PrintDocsPlatform : "<color:#707070>Возвращает токены/атрибуты\n<color:#707070><size:8>[OAuth2 / OIDC / JWT]</size>"
+@enduml
