@@ -1,10 +1,12 @@
 # Папки
 DSL_DIR=docs/architecture/dsl
+MDD_DIR=docs/architecture/mermaid
 DIAGRAMS_DIR=docs/architecture/diagrams
 
 # CLI команды
 STRUCTURIZR_DOCKER=docker run --rm -v $(PWD):/usr/local/structurizr structurizr/cli
 PLANTUML_DOCKER=docker run --rm -v $(PWD):/data plantuml/plantuml
+MERMAIND_DOCKER=docker run --rm -v $(PWD):/data minlag/mermaid-cli
 
 # Цель по умолчанию
 default: diagrams
@@ -33,6 +35,10 @@ svg:
 # Генерация диаграмм (по умолчанию docker + PNG)
 diagrams: diagrams-docker png
 
+# Модель предметной области
+diagrams-mermaid:
+	$(MERMAIND_DOCKER) \
+	-i $(MDD_DIR)/*.mmd
 # Очистка сгенерированных файлов
 clean:
 	rm -rf $(DIAGRAMS_DIR)/*
