@@ -76,7 +76,6 @@ IT команда
 ```
 - Переходим на URL http://localhost:8080/
 - Получаем контекстную диаграмму
-
 ![structurizr-1-SystemContext-001(1).png](architecture/diagrams/structurizr-1-SystemContext-001%281%29.png)
 
 ### Критические сценарии и характеристики
