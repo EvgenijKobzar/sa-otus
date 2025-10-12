@@ -13,32 +13,39 @@ default: diagrams
 
 # Генерация диаграмм через Docker
 diagrams-docker:
-	$(STRUCTURIZR_DOCKER) export \
-		-workspace /usr/local/structurizr/$(DSL_DIR)/workspace.dsl \
-		-format plantuml \
-		-output /usr/local/structurizr/$(DIAGRAMS_DIR)
+$(STRUCTURIZR_DOCKER) export \
+-workspace /usr/local/structurizr/$(DSL_DIR)/workspace.dsl \
+-format plantuml \
+-output /usr/local/structurizr/$(DIAGRAMS_DIR)
 
 diagrams-docker-from-json:
-	$(STRUCTURIZR_DOCKER) export \
-		-workspace /usr/local/structurizr/$(DSL_DIR)/workspace.json \
-		-format plantuml \
-		-output /usr/local/structurizr/$(DIAGRAMS_DIR)
+$(STRUCTURIZR_DOCKER) export \
+-workspace /usr/local/structurizr/$(DSL_DIR)/workspace.json \
+-format plantuml \
+-output /usr/local/structurizr/$(DIAGRAMS_DIR)
 
 # Конвертация .puml → PNG
 png:
-	$(PLANTUML_DOCKER) -tpng $(DIAGRAMS_DIR)/*.puml
+$(PLANTUML_DOCKER) -tpng $(DIAGRAMS_DIR)/*.puml
 
 # Конвертация .puml → SVG
 svg:
-	$(PLANTUML_DOCKER) -tsvg $(DIAGRAMS_DIR)/*.puml
+$(PLANTUML_DOCKER) -tsvg $(DIAGRAMS_DIR)/*.puml
 
 # Генерация диаграмм (по умолчанию docker + PNG)
 diagrams: diagrams-docker png
 
 # Модель предметной области
-diagrams-mermaid:
-	$(MERMAIND_DOCKER) \
-	-i $(MDD_DIR)/*.mmd
+diagrams-mermaid-svg:
+$(MERMAIND_DOCKER) \
+-i $(MDD_DIR)/*.mmd
+
+diagrams-mermaid-png:
+$(MERMAIND_DOCKER) \
+-i $(MDD_DIR)/*.mmd \
+-o $(MDD_DIR)/*.png \
+--scale 10
+
 # Очистка сгенерированных файлов
 clean:
-	rm -rf $(DIAGRAMS_DIR)/*
+rm -rf $(DIAGRAMS_DIR)/*
