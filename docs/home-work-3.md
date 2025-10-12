@@ -125,3 +125,116 @@ sequenceDiagram
 * **Зависимость от внешних провайдеров** (Payments/Billing)
 * **Дублирование печати** при повторах: строгая идемпотентность в PrintGateway и блокировка по `orderId`.
 * **Edge-безопасность presigned URL**: короткие TTL, скачивание только сервером PrintGateway, одноразовые ссылки.
+
+--- 
+
+### 2. Сервис **Payments** (платёжный фасад).
+
+Что делает Payments
+
+* Унифицированный **фасад** над внешними провайдерами (CloudPayments/YooMoney/UnitPay/…).
+* Создание платежей/интентов, подтверждение, вебхуки, возвраты.
+* Идемпотентность, биллинг-сигналы и события для downstream (PrintOrders, Billing, Notifications).
+* Хранит минимальные метаданные и статусы, **не хранит** чувствительные PAN-данные (токены провайдера).
+
+---
+
+ Взаимодействие (критичный сценарий: «Инициация и подтверждение онлайн-платежа с вебхуком»)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant UI as Web/Mobile UI
+  participant APIGW as API Gateway
+  participant ORD as PrintOrders
+  participant PAY as Payments (Facade)
+  participant PROV as Provider (Stripe/Adyen)
+  participant BILL as Billing
+  participant BUS as Event Bus
+
+  Note over UI: Пользователь подтверждает оплату заказа
+  UI->>APIGW: POST /print-orders/{id}/confirm {paymentMethod}
+  APIGW->>ORD: Confirm(orderId)
+  ORD->>PAY: CreatePayment {orderId, amount, currency, method, idempotencyKey}
+  PAY->>PROV: Create PaymentIntent/Session (idempotencyKey)
+  PROV-->>PAY: {providerPaymentId, clientSecret}
+  PAY-->>ORD: {paymentId, clientSecret}
+  ORD-->>APIGW: {clientSecret}
+  APIGW-->>UI: Завершение оплаты через SDK/3DS
+
+  Note over PROV,UI: Провайдер выполняет 3DS/банковскую аутентификацию
+  PROV-->>PAY: (Webhook) payment.succeeded {providerPaymentId, amount, orderRef}
+  PAY->>PAY: Verify signature, idempotency, update status=SUCCEEDED
+  PAY-->>BUS: Payment.Succeeded {paymentId, orderId, amount}
+  BUS-->>ORD: Route event
+  ORD->>BILL: Capture/Record {orderId, amount}  %% если биллинг считает начисления
+  ORD-->>UI: Заказ оплачен, переходим к печати
+```
+
+> Примечания:
+>
+> * Вызов `CreatePayment` синхронный; финальный статус приходит **через вебхук** (асинхронно).
+> * Используется **idempotencyKey** и на стороне Payments, и на стороне провайдера.
+> * Подписанный вебхук проверяется по секрету/сертификату, события — через Outbox.
+
+---
+
+# Оценка архитектурного решения (Quality Attribute Scenarios)
+
+## 1) Надёжность / согласованность
+
+* **Сценарий:** провайдер прислал дублирующий вебхук `payment.succeeded`.
+* **Механизм:** идемпотентная обработка по `providerPaymentId` + состояние `processedAt`; транзакционный Outbox для `Payment.Succeeded`.
+* **Отклик/Метрики:** 0 двойных публикаций; обработка вебхука ≤ **300 мс**.
+* **Риски:** гонка между несколькими воркерами → решается блокировкой по ключу или `SELECT … FOR UPDATE`.
+
+## 2) Доступность
+
+* **Сценарий:** временная недоступность провайдера при `CreatePayment`.
+* **Механизм:** circuit breaker, экспоненциальные ретраи с джиттером; возврат статуса `PENDING_PROVIDER`.
+* **Отклик:** успешное создание платежа ≥ **99.9%** за 10 мин; UI показывает «подтверждение выполняется», Print Orders Service ждёт вебхук.
+* **Риски:** длительная деградация → рост очереди; лимитируется rate-limit/TTL.
+
+## 3) Производительность
+
+* **Сценарий:** пользователь жмёт «Оплатить», нужен clientSecret за один RTT.
+* **Механизм:** синхронный фасад к `Create PaymentIntent`.
+* **Метрики:** `CreatePayment` ≤ **250 мс**; end-to-end (UI→clientSecret) ≤ **500 мс** (без 3DS времени банка).
+
+## 4) Масштабируемость
+
+* **Сценарий:** пик 10× по платежам (например, массовые заказы).
+* **Механизм:** stateless API, воркеры вебхуков с автоскейлом, идемпотентность, шардирование по `providerPaymentId`.
+* **Метрики:** устойчиво ≥ **300 rps** `CreatePayment`, ≥ **600 rps** вебхуков; DLQ < **0.1%**.
+
+## 5) Модифицируемость
+
+* **Сценарий:** добавить нового провайдера (локальный агрегатор).
+* **Механизм:** слой `ProviderAdapter` (Adapter/Strategy), унифицированные доменные события, маппинг кодов ошибок.
+* **Метрики:** TTM интеграции ≤ **2–3 недели**; изменения локализованы в одном адаптере + конфиг.
+
+## 6) Безопасность и соответствие
+
+* **Сценарий:** попытка подделать вебхук.
+* **Механизм:** проверка подписи тела (секрет/сертификат), при несоответствии → 4xx без сайд-эффекта; IP-allowlist (если доступно).
+* **Метрики:** 0 успешных неаутентичных вебхуков; MTTR ротации секрета ≤ **30 мин**.
+* **PCI-DSS:** PAN не хранится; только токены провайдера и метаданные; шифрование PII, KMS; журнал аудита.
+
+## 7) Наблюдаемость/диагностика
+
+* **Сценарий:** заказы зависают в «оплата в процессе».
+* **Механизм:** сквозной `traceId` из Print Orders Service в PAY и в провайдера (через metadata), метрики «age of pending».
+* **Метрики:** MTTR ≤ **30 мин**; доля платежей в `PENDING` > **5 мин** < **0.5%**.
+
+---
+
+# Архитектурные решения (сильные стороны)
+
+* **Фасад + адаптеры** → единый контракт для домена, лёгкая смена/добавление провайдера.
+* **Идемпотентность сквозь весь путь** (idempotencyKey, providerPaymentId) → отсутствие дублей.
+* **Событийная интеграция** c Print Orders Service/Billing (Outbox) → устойчивость к временному разрыву между оплатой и доменом.
+
+# Зоны риска и смягчение
+
+* **Несогласованность статусов** (провайдер «успех», но Print Orders Service не обновился): обязательный Outbox + ретраи публикаций; Print Orders Service подписывается и идемпотентно применяет.
+* **Потеря вебхука**: повторные запросы провайдера + наш DLQ и периодический «reconcile» статусов по провайдеру.
