@@ -286,3 +286,145 @@ flowchart LR
 | Audit/Compliance       | S3 (WORM), OpenSearch | неизменяемый аудит, поисковый индекс         |
 | Observability          | Prometheus/Loki/Tempo | метрики, логи, трейсы                        |
 | Config/Flags           | Consul/Postgres       | конфигурации и фичефлаги                     |
+
+## 5. Деплоймент диаграмма
+### 5.1. Прод: облако + регионы + внешние системы
+```mermaid
+flowchart LR
+  %% ==== External users/systems ====
+  user[[Пользователь<br/>Web/Mobile]]
+  extPay[[Платёжные провайдеры<br/>Stripe/Adyen/РУ-провайдер]]
+  extMail[[Email/SMS Gateway]]
+  extIdp[[Corp/3rd-party IdP]]
+
+  %% ==== Global Edge ====
+  subgraph EDGE["Global Edge"]
+    CDN[(CDN)]
+    WAF[WAF / DDoS]
+  end
+  user --> CDN --> WAF
+
+  %% ==== Cloud Region ====
+  subgraph CLOUD["Cloud Region: prod-ru-central (VPC)"]
+    subgraph NET["Private Subnets / Security Groups"]
+      subgraph K8S["Kubernetes Cluster (prod)"]
+        subgraph NS_ID["ns: identity"]
+          AUTH["Auth API (Deployment)"]
+          USERS["Users Service (Deployment)"]
+        end
+        subgraph NS_CONTENT["ns: content"]
+          DOCS["Docs API (Deployment)"]
+          PREV["Preview Workers (HPA)"]
+          TPL["Templates API (Deployment)"]
+        end
+        subgraph NS_PRINT["ns: printing"]
+          ORD["PrintOrders API (Deployment)"]
+          PG["PrintGateway (DaemonSet/Adapters)"]
+          SCH["Scheduling API (Deployment)"]
+        end
+        subgraph NS_FIN["ns: finance"]
+          BILL["Billing API (Deployment)"]
+          PAY["Payments Facade (Deployment)"]
+          INV["Invoicing API (Deployment)"]
+        end
+        subgraph NS_CX["ns: cx"]
+          NOTIF["Notifications (Deployment)"]
+        end
+        subgraph NS_PLAT["ns: platform"]
+          GW["API Gateway / BFF (Ingress)"]
+          OBS["Observability Agents (DaemonSet)"]
+          SIDECAR["Sidecar: OTel/Envoy (per pod)"]
+        end
+      end
+
+      subgraph DATA["Managed Data Services (HA/Backup)"]
+        UDB[(Users DB<br/>PostgreSQL)]
+        CDB[(Docs DB<br/>PostgreSQL)]
+        PDB[(Printing DB<br/>PostgreSQL)]
+        FDB[(Finance DB<br/>PostgreSQL)]
+        CXDB[(Comm DB<br/>PostgreSQL)]
+        OBJ[(Object Storage<br/>S3-compatible)]
+        BUS[(Event Bus<br/>Kafka/NATS)]
+        AUDDB[(Audit Store<br/>WORM/S3-Glacier)]
+        METRICS[(TSDB / Logs<br/>Prometheus/Loki)]
+        CFG[(Config/Flags<br/>Consul/Redis)]
+      end
+    end
+  end
+
+  %% ==== Connectivity ====
+  WAF --> GW
+  GW --> AUTH & USERS & DOCS & ORD & BILL & PAY & NOTIF & SCH & TPL
+  PREV --> OBJ
+  DOCS --- OBJ
+  PG -.->|IPSec/VPN| STORE_EDGE
+
+  %% ==== Data links ====
+  AUTH --- UDB
+  USERS --- UDB
+  DOCS --- CDB
+  ORD --- PDB
+  SCH --- PDB
+  BILL --- FDB
+  PAY --- FDB
+  NOTIF --- CXDB
+
+  %% ==== Platform links ====
+  AUTH -. metrics/logs .-> METRICS
+  DOCS -. metrics/logs .-> METRICS
+  ORD  -. metrics/logs .-> METRICS
+  BILL -. metrics/logs .-> METRICS
+  PAY  -. metrics/logs .-> METRICS
+  NOTIF -. metrics/logs .-> METRICS
+  GW -. config .-> CFG
+  BUS -. persist .-> OBJ
+  AUDDB <-. archive .- METRICS
+
+  %% ==== External systems ====
+  PAY -- webhook/callback --> extPay
+  NOTIF --> extMail
+  AUTH --- extIdp
+
+  %% ==== Edge stores placeholder ====
+  STORE_EDGE[[Магазины Edge sites<br/>см. отдельную схему]]
+
+```
+### 5.2. Магазин (edge site): печать и связь с продом
+```mermaid
+flowchart LR
+  subgraph STORE["Edge Site: Магазин #123 (LAN)"]
+    subgraph NETS["Local Network / VLANs"]
+      KIOSK[Киоск для клиентов iPad/PC]
+      POS[POS-терминал оплаты]
+      PRN1[[Принтер #1]]
+      PRN2[[Принтер #2]]
+      GWEDGE[Edge Gateway<br/> Docker/Agent]
+      CACHE[(Edge Cache / Queue)]
+    end
+  end
+
+  subgraph CLOUD["Cloud Region (prod)"]
+    PG[PrintGateway Cluster]
+%%    ORD[PrintOrders API]
+    PAY[Payments Facade]
+%%    BUS[(Event Bus)]
+  end
+
+  %% Connectivity
+  KIOSK -->|HTTPS| CLOUD
+  POS -->|Payment app/MPOS| PAY
+  GWEDGE <-->|MQTT/gRPC over mTLS| PG
+  GWEDGE -->|Spool/IPPS| PRN1
+  GWEDGE -->|Spool/IPPS| PRN2
+  GWEDGE --- CACHE
+%%  ORD <-->|events| BUS
+  GWEDGE -. telemetry .-> CLOUD
+  GWEDGE -. VPN/IPSec .- CLOUD
+
+```
+>Локальный агент в магазине (GWEDGE)
+поддерживает защищённое (mTLS) соединение с облачным шлюзом печати (PG)
+и обменивается данными через протоколы MQTT и gRPC.
+>
+>Через это соединение облако отправляет задания на печать,
+а агент передаёт статусы и метрики принтеров.
