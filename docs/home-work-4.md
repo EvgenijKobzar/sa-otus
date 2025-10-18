@@ -290,107 +290,103 @@ flowchart LR
 ## 5. Деплоймент диаграмма
 ### 5.1. Прод: облако + регионы + внешние системы
 ```mermaid
-        info
-```
-
-```mermaid
 flowchart LR
-  %% ==== External users/systems ====
-  user[[Пользователь<br/>Web/Mobile]]
-  extPay[[Платёжные провайдеры<br/>Stripe/Adyen/РУ-провайдер]]
-  extMail[[Email/SMS Gateway]]
-  extIdp[[Corp/3rd-party IdP]]
+%% ==== External users/systems ====
+    user[[Пользователь<br/>Web/Mobile]]
+    extPay[[Платёжные провайдеры<br/>Stripe/Adyen/РУ-провайдер]]
+    extMail[[Email/SMS Gateway]]
+    extIdp[[Corp/3rd-party IdP]]
 
-  %% ==== Global Edge ====
-  subgraph EDGE["Global Edge"]
-    CDN[(CDN)]
-    WAF[WAF / DDoS]
-  end
-  user --> CDN --> WAF
-
-  %% ==== Cloud Region ====
-  subgraph CLOUD["Cloud Region: prod-ru-central (VPC)"]
-    subgraph NET["Private Subnets / Security Groups"]
-      subgraph K8S["Kubernetes Cluster (prod)"]
-        subgraph NS_ID["ns: identity"]
-          AUTH["Auth API (Deployment)"]
-          USERS["Users Service (Deployment)"]
-        end
-        subgraph NS_CONTENT["ns: content"]
-          DOCS["Docs API (Deployment)"]
-          PREV["Preview Workers (HPA)"]
-          TPL["Templates API (Deployment)"]
-        end
-        subgraph NS_PRINT["ns: printing"]
-          ORD["PrintOrders API (Deployment)"]
-          PG["PrintGateway (DaemonSet/Adapters)"]
-          SCH["Scheduling API (Deployment)"]
-        end
-        subgraph NS_FIN["ns: finance"]
-          BILL["Billing API (Deployment)"]
-          PAY["Payments Facade (Deployment)"]
-          INV["Invoicing API (Deployment)"]
-        end
-        subgraph NS_CX["ns: cx"]
-          NOTIF["Notifications (Deployment)"]
-        end
-        subgraph NS_PLAT["ns: platform"]
-          GW["API Gateway / BFF (Ingress)"]
-          OBS["Observability Agents (DaemonSet)"]
-          SIDECAR["Sidecar: OTel/Envoy (per pod)"]
-        end
-      end
-
-      subgraph DATA["Managed Data Services (HA/Backup)"]
-        UDB[(Users DB<br/>PostgreSQL)]
-        CDB[(Docs DB<br/>PostgreSQL)]
-        PDB[(Printing DB<br/>PostgreSQL)]
-        FDB[(Finance DB<br/>PostgreSQL)]
-        CXDB[(Comm DB<br/>PostgreSQL)]
-        OBJ[(Object Storage<br/>S3-compatible)]
-        BUS[(Event Bus<br/>Kafka/NATS)]
-        AUDDB[(Audit Store<br/>WORM/S3-Glacier)]
-        METRICS[(TSDB / Logs<br/>Prometheus/Loki)]
-        CFG[(Config/Flags<br/>Consul/Redis)]
-      end
+%% ==== Global Edge ====
+    subgraph EDGE["Global Edge"]
+        CDN[(CDN)]
+        WAF[WAF / DDoS]
     end
-  end
+    user --> CDN --> WAF
 
-  %% ==== Connectivity ====
-  WAF --> GW
-  GW --> AUTH & USERS & DOCS & ORD & BILL & PAY & NOTIF & SCH & TPL
-  PREV --> OBJ
-  DOCS --- OBJ
-  PG -.->|IPSec/VPN| STORE_EDGE
+%% ==== Cloud Region ====
+    subgraph CLOUD["Cloud Region: prod-eu-central (VPC)"]
+        subgraph NET["Private Subnets / Security Groups"]
+            subgraph K8S["Kubernetes Cluster (prod)"]
+                subgraph NS_ID["ns: identity"]
+                    AUTH["Auth API (Deployment)"]
+                    USERS["Users Service (Deployment)"]
+                end
+                subgraph NS_CONTENT["ns: content"]
+                    DOCS["Docs API (Deployment)"]
+                    PREV["Preview Workers (HPA)"]
+                    TPL["Templates API (Deployment)"]
+                end
+                subgraph NS_PRINT["ns: printing"]
+                    ORD["PrintOrders API (Deployment)"]
+                    PG["PrintGateway (DaemonSet/Adapters)"]
+                    SCH["Scheduling API (Deployment)"]
+                end
+                subgraph NS_FIN["ns: finance"]
+                    BILL["Billing API (Deployment)"]
+                    PAY["Payments Facade (Deployment)"]
+                    INV["Invoicing API (Deployment)"]
+                end
+                subgraph NS_CX["ns: cx"]
+                    NOTIF["Notifications (Deployment)"]
+                end
+                subgraph NS_PLAT["ns: platform"]
+                    GW["API Gateway / BFF (Ingress)"]
+                    OBS["Observability Agents (DaemonSet)"]
+                    SIDECAR["Sidecar: OTel/Envoy (per pod)"]
+                end
+            end
 
-  %% ==== Data links ====
-  AUTH --- UDB
-  USERS --- UDB
-  DOCS --- CDB
-  ORD --- PDB
-  SCH --- PDB
-  BILL --- FDB
-  PAY --- FDB
-  NOTIF --- CXDB
+            subgraph DATA["Managed Data Services (HA/Backup)"]
+                UDB[(Users DB<br/>PostgreSQL)]
+                CDB[(Docs DB<br/>PostgreSQL)]
+                PDB[(Printing DB<br/>PostgreSQL)]
+                FDB[(Finance DB<br/>PostgreSQL)]
+                CXDB[(Comm DB<br/>PostgreSQL)]
+                OBJ[(Object Storage<br/>S3-compatible)]
+                BUS[(Event Bus<br/>Kafka/NATS)]
+                AUDDB[(Audit Store<br/>WORM/S3-Glacier)]
+                METRICS[(TSDB / Logs<br/>Prometheus/Loki)]
+                CFG[(Config/Flags<br/>Consul/Redis)]
+            end
+        end
+    end
 
-  %% ==== Platform links ====
-  AUTH -. metrics/logs .-> METRICS
-  DOCS -. metrics/logs .-> METRICS
-  ORD  -. metrics/logs .-> METRICS
-  BILL -. metrics/logs .-> METRICS
-  PAY  -. metrics/logs .-> METRICS
-  NOTIF -. metrics/logs .-> METRICS
-  GW -. config .-> CFG
-  BUS -. persist .-> OBJ
-  AUDDB <-. archive .- METRICS
+%% ==== Connectivity ====
+    WAF --> GW
+    GW --> AUTH & USERS & DOCS & ORD & BILL & PAY & NOTIF & SCH & TPL
+    PREV --> OBJ
+    DOCS --- OBJ
+    PG -.->|IPSec/VPN| STORE_EDGE
 
-  %% ==== External systems ====
-  PAY -- webhook/callback --> extPay
-  NOTIF --> extMail
-  AUTH --- extIdp
+%% ==== Data links ====
+    AUTH --- UDB
+    USERS --- UDB
+    DOCS --- CDB
+    ORD --- PDB
+    SCH --- PDB
+    BILL --- FDB
+    PAY --- FDB
+    NOTIF --- CXDB
 
-  %% ==== Edge stores placeholder ====
-  STORE_EDGE[[Магазины Edge sites<br/>см. отдельную схему]]
+%% ==== Platform links ====
+    AUTH -. metrics/logs .-> METRICS
+    DOCS -. metrics/logs .-> METRICS
+    ORD  -. metrics/logs .-> METRICS
+    BILL -. metrics/logs .-> METRICS
+    PAY  -. metrics/logs .-> METRICS
+    NOTIF -. metrics/logs .-> METRICS
+    GW -. config .-> CFG
+    BUS -. persist .-> OBJ
+%%   AUDDB <-. archive .- METRICS
+
+%% ==== External systems ====
+    PAY -- webhook/callback --> extPay
+    NOTIF --> extMail
+    AUTH --- extIdp
+
+%% ==== Edge stores placeholder ====
+    STORE_EDGE[[Магазины Edge sites<br/>см. отдельную схему]]
 
 ```
 ### 5.2. Магазин (edge site): печать и связь с продом
