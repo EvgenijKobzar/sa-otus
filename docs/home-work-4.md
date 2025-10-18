@@ -267,3 +267,22 @@ flowchart LR
   CFG --> NOTIF
 
 ```
+## 4. Декомпозиция слоя данных: какие данные в каких БД хранятся
+
+| Домен/Сервис           | Тип БД/Хранилище      | Что хранится                                 |
+| ---------------------- |-----------------------| -------------------------------------------- |
+| Auth/Users             | PostgreSQL, Redis     | учётки, профили, планы; сессии/блок-листы    |
+| Docs                   | PostgreSQL            | метаданные документов/версий/шаринга         |
+| Docs Blobs             | S3                    | двоичные данные версий, предпросмотры        |
+| Templates              | PostgreSQL + S3       | метаданные и артефакты шаблонов              |
+| Search                 | OpenSearch            | полнотекст по документам                     |
+| PrintOrders/Jobs/Slots | PostgreSQL            | заказы, задания, расписания, устройства      |
+| Device telemetry       | Timescale/ClickHouse  | метрики принтеров (TS)                       |
+| Billing/Payments       | PostgreSQL            | тарифы, котировки, статусы платежей, инвойсы |
+| Reconciliation         | S3                    | отчёты провайдера, свёрка                    |
+| Notifications/Feedback | PostgreSQL, Redis     | сообщения, шаблоны, скоринг, квоты           |
+| Event Bus              | Kafka/NATS            | доменные события (ретенция)                  |
+| Warehouse              | ClickHouse/Snowflake  | аналитика и отчётность (факты/измерения)     |
+| Audit/Compliance       | S3 (WORM), OpenSearch | неизменяемый аудит, поисковый индекс         |
+| Observability          | Prometheus/Loki/Tempo | метрики, логи, трейсы                        |
+| Config/Flags           | Consul/Postgres       | конфигурации и фичефлаги                     |
