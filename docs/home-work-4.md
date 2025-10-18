@@ -290,6 +290,10 @@ flowchart LR
 ## 5. Деплоймент диаграмма
 ### 5.1. Прод: облако + регионы + внешние системы
 ```mermaid
+        info
+```
+
+```mermaid
 flowchart LR
   %% ==== External users/systems ====
   user[[Пользователь<br/>Web/Mobile]]
